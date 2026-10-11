@@ -5,6 +5,7 @@ import com.boleteria.exception.CompraInvalidaException;
 import com.boleteria.io.Auditoria;
 import com.boleteria.io.ComprasRepository;
 import com.boleteria.io.CsvLoader;
+import com.boleteria.io.TicketPdf;
 import com.boleteria.model.Asiento;
 import com.boleteria.model.Compra;
 import com.boleteria.model.Comprador;
@@ -24,8 +25,10 @@ public class Main {
     private static final String RUTA_ASIENTOS = "data/asientos.csv";
     private static final String RUTA_COMPRAS = "data/compras.json";
     private static final String RUTA_AUDITORIA = "logs/auditoria.txt";
+    private static final String CARPETA_TICKETS = "tickets";
 
     private final Scanner scanner = new Scanner(System.in);
+    private final TicketPdf ticketPdf = new TicketPdf(CARPETA_TICKETS);
     private EventoService eventoService;
     private CompraService compraService;
 
@@ -142,6 +145,10 @@ public class Main {
             System.out.println("Subtotal: $" + formatMoneda(compra.getSubtotal()));
             System.out.println("Servicio (10%): $" + formatMoneda(compra.getServicio()));
             System.out.println("Total: $" + formatMoneda(compra.getTotal()));
+
+            Evento evento = eventoService.buscarEvento(idEvento);
+            String rutaTicket = ticketPdf.generar(compra, evento);
+            System.out.println("Ticket generado en: " + rutaTicket);
         } catch (CompraInvalidaException e) {
             System.out.println("No se pudo completar la compra: " + e.getMessage());
         } catch (ArchivoException e) {
