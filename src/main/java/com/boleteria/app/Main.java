@@ -5,13 +5,16 @@ import com.boleteria.exception.CompraInvalidaException;
 import com.boleteria.io.Auditoria;
 import com.boleteria.io.ComprasRepository;
 import com.boleteria.io.CsvLoader;
+import com.boleteria.io.GraficaVentas;
 import com.boleteria.io.TicketPdf;
 import com.boleteria.model.Asiento;
 import com.boleteria.model.Compra;
 import com.boleteria.model.Comprador;
 import com.boleteria.model.Evento;
+import com.boleteria.model.ReporteEvento;
 import com.boleteria.service.CompraService;
 import com.boleteria.service.EventoService;
+import com.boleteria.service.ReporteService;
 
 import java.util.Arrays;
 import java.util.List;
@@ -26,13 +29,16 @@ public class Main {
     private static final String RUTA_COMPRAS = "data/compras.json";
     private static final String RUTA_AUDITORIA = "logs/auditoria.txt";
     private static final String CARPETA_TICKETS = "tickets";
+    private static final String RUTA_REPORTE = "reportes/ventas_por_evento.pdf";
 
     private final Scanner scanner = new Scanner(System.in);
     private final TicketPdf ticketPdf = new TicketPdf(CARPETA_TICKETS);
+    private final GraficaVentas graficaVentas = new GraficaVentas();
     private EventoService eventoService;
     private CompraService compraService;
 
     public static void main(String[] args) {
+        System.setProperty("java.awt.headless", "true");
         Main app = new Main();
         if (app.iniciar()) {
             app.ejecutarMenu();
@@ -70,6 +76,7 @@ public class Main {
                 case "1" -> listarEventos();
                 case "2" -> mostrarAsientos();
                 case "3" -> comprar();
+                case "4" -> generarReporte();
                 case "0" -> {
                     salir = true;
                     System.out.println("Hasta luego.");
@@ -85,6 +92,7 @@ public class Main {
         System.out.println("1. Listar eventos");
         System.out.println("2. Ver asientos de un evento");
         System.out.println("3. Comprar boletas");
+        System.out.println("4. Reporte de ventas");
         System.out.println("0. Salir");
         System.out.print("Seleccione una opcion: ");
     }
@@ -153,6 +161,27 @@ public class Main {
             System.out.println("No se pudo completar la compra: " + e.getMessage());
         } catch (ArchivoException e) {
             System.out.println("Error al guardar la compra: " + e.getMessage());
+        }
+    }
+
+    private void generarReporte() {
+        ReporteService reporteService = new ReporteService(eventoService, compraService.getCompras());
+        List<ReporteEvento> datos = reporteService.generarReporte();
+
+        System.out.println();
+        System.out.println("Reporte de ventas:");
+        for (ReporteEvento dato : datos) {
+            System.out.println("- " + dato.getIdEvento() + " | " + dato.getNombre()
+                    + " | vendidas: " + dato.getBoletasVendidas() + "/" + dato.getTotalAsientos()
+                    + " | ocupacion: " + String.format("%.1f", dato.getOcupacion()) + "%"
+                    + " | ingresos: $" + formatMoneda(dato.getIngresos()));
+        }
+
+        try {
+            String ruta = graficaVentas.generar(datos, RUTA_REPORTE);
+            System.out.println("Grafica generada en: " + ruta);
+        } catch (ArchivoException e) {
+            System.out.println("Error al generar la grafica: " + e.getMessage());
         }
     }
 
