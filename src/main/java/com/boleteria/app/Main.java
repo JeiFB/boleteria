@@ -108,8 +108,9 @@ public class Main {
     }
 
     private void mostrarAsientos() {
-        System.out.print("Ingrese el id del evento: ");
-        String idEvento = scanner.nextLine().trim();
+        listarEventos();
+        System.out.print("\nIngrese el id del evento: ");
+        String idEvento = scanner.nextLine().trim().toUpperCase();
         if (!eventoService.existeEvento(idEvento)) {
             System.out.println("El evento '" + idEvento + "' no existe.");
             return;
@@ -126,8 +127,14 @@ public class Main {
     }
 
     private void comprar() {
-        System.out.print("Ingrese el id del evento: ");
-        String idEvento = scanner.nextLine().trim();
+        listarEventos();
+        System.out.print("\nIngrese el id del evento: ");
+        String idEvento = scanner.nextLine().trim().toUpperCase();
+        if (!eventoService.existeEvento(idEvento)) {
+            System.out.println("El evento '" + idEvento + "' no existe.");
+            return;
+        }
+        mostrarDisponibles(idEvento);
 
         System.out.print("Nombre del comprador: ");
         String nombre = scanner.nextLine().trim();
@@ -139,7 +146,7 @@ public class Main {
         System.out.print("Codigos de asientos separados por coma (ej: VIP-A-01,VIP-A-02): ");
         String entrada = scanner.nextLine().trim();
         List<String> codigos = Arrays.stream(entrada.split(","))
-                .map(String::trim)
+                .map(c -> c.trim().toUpperCase())
                 .filter(c -> !c.isEmpty())
                 .collect(Collectors.toList());
 
@@ -161,6 +168,24 @@ public class Main {
             System.out.println("No se pudo completar la compra: " + e.getMessage());
         } catch (ArchivoException e) {
             System.out.println("Error al guardar la compra: " + e.getMessage());
+        }
+    }
+
+    private void mostrarDisponibles(String idEvento) {
+        System.out.println();
+        System.out.println("Asientos disponibles en " + idEvento + ":");
+        boolean hay = false;
+        for (Asiento asiento : eventoService.asientosDeEvento(idEvento)) {
+            if (!asiento.isVendido()) {
+                hay = true;
+                System.out.println("  " + asiento.getCodigo()
+                        + " | " + asiento.getLocalidad()
+                        + " | fila " + asiento.getFila() + " num " + asiento.getNumero()
+                        + " | $" + formatMoneda(asiento.getPrecio()));
+            }
+        }
+        if (!hay) {
+            System.out.println("  (no hay asientos disponibles)");
         }
     }
 
