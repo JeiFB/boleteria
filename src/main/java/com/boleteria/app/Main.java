@@ -16,6 +16,7 @@ import com.boleteria.service.CompraService;
 import com.boleteria.service.EventoService;
 import com.boleteria.service.ReporteService;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
@@ -128,27 +129,16 @@ public class Main {
 
     private void comprar() {
         listarEventos();
-        System.out.print("\nIngrese el id del evento: ");
-        String idEvento = scanner.nextLine().trim().toUpperCase();
-        if (!eventoService.existeEvento(idEvento)) {
-            System.out.println("El evento '" + idEvento + "' no existe.");
+        String idEvento = leerEvento();
+        if (idEvento == null) {
             return;
         }
         mostrarDisponibles(idEvento);
 
-        System.out.print("Nombre del comprador: ");
-        String nombre = scanner.nextLine().trim();
-        System.out.print("Documento: ");
-        String documento = scanner.nextLine().trim();
-        System.out.print("Correo: ");
-        String correo = scanner.nextLine().trim();
-
-        System.out.print("Codigos de asientos separados por coma (ej: VIP-A-01,VIP-A-02): ");
-        String entrada = scanner.nextLine().trim();
-        List<String> codigos = Arrays.stream(entrada.split(","))
-                .map(c -> c.trim().toUpperCase())
-                .filter(c -> !c.isEmpty())
-                .collect(Collectors.toList());
+        String nombre = leerObligatorio("Nombre del comprador");
+        String documento = leerObligatorio("Documento");
+        String correo = leerCorreo();
+        List<String> codigos = leerAsientos(idEvento);
 
         try {
             Comprador comprador = new Comprador(nombre, documento, correo);
@@ -169,6 +159,83 @@ public class Main {
         } catch (ArchivoException e) {
             System.out.println("Error al guardar la compra: " + e.getMessage());
         }
+    }
+
+    // Pide el id del evento hasta que exista (o 0 para cancelar).
+    private String leerEvento() {
+        while (true) {
+            System.out.print("\nIngrese el id del evento (0 para cancelar): ");
+            String id = scanner.nextLine().trim().toUpperCase();
+            if (id.equals("0")) {
+                return null;
+            }
+            if (eventoService.existeEvento(id)) {
+                return id;
+            }
+            System.out.println("El evento '" + id + "' no existe. Intente de nuevo.");
+        }
+    }
+
+    private String leerObligatorio(String etiqueta) {
+        while (true) {
+            System.out.print(etiqueta + ": ");
+            String valor = scanner.nextLine().trim();
+            if (!valor.isEmpty()) {
+                return valor;
+            }
+            System.out.println("Este dato es obligatorio.");
+        }
+    }
+
+    private String leerCorreo() {
+        while (true) {
+            System.out.print("Correo: ");
+            String correo = scanner.nextLine().trim();
+            if (compraService.validarCorreo(correo)) {
+                return correo;
+            }
+            System.out.println("El correo no es valido (ejemplo: nombre@dominio.com).");
+        }
+    }
+
+    // Pide los asientos y valida uno por uno antes de continuar.
+    private List<String> leerAsientos(String idEvento) {
+        while (true) {
+            System.out.print("Codigos de asientos separados por coma (ej: VIP-A-01,VIP-A-02): ");
+            String entrada = scanner.nextLine().trim();
+            List<String> codigos = Arrays.stream(entrada.split(","))
+                    .map(c -> c.trim().toUpperCase())
+                    .filter(c -> !c.isEmpty())
+                    .collect(Collectors.toList());
+
+            if (codigos.isEmpty()) {
+                System.out.println("Debe elegir al menos un asiento.");
+                continue;
+            }
+            String error = revisarAsientos(idEvento, codigos);
+            if (error == null) {
+                return codigos;
+            }
+            System.out.println(error + " Intente de nuevo.");
+        }
+    }
+
+    private String revisarAsientos(String idEvento, List<String> codigos) {
+        List<String> vistos = new ArrayList<>();
+        for (String codigo : codigos) {
+            if (vistos.contains(codigo)) {
+                return "El asiento '" + codigo + "' esta repetido.";
+            }
+            Asiento asiento = eventoService.buscarAsiento(idEvento, codigo);
+            if (asiento == null) {
+                return "El asiento '" + codigo + "' no existe en el evento.";
+            }
+            if (asiento.isVendido()) {
+                return "El asiento '" + codigo + "' ya fue vendido.";
+            }
+            vistos.add(codigo);
+        }
+        return null;
     }
 
     private void mostrarDisponibles(String idEvento) {
